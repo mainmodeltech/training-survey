@@ -1,0 +1,22 @@
+# Variables sensibles — JAMAIS dans git
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# Node
+node_modules/
+dist/
+.DS_Store
+
+# Base de données locale de dev
+*.db
+*.sqlite
+
+# Logs
+*.log

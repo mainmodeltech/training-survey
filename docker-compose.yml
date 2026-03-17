@@ -1,0 +1,95 @@
+version: "3.9"
+
+# ─────────────────────────────────────────────────────────
+#  RÉSEAUX
+#  - traefik-network : réseau externe partagé avec Traefik
+#  - coraf-internal  : réseau privé entre les services
+#    (la DB n'est PAS exposée à Traefik ni à l'extérieur)
+# ─────────────────────────────────────────────────────────
+networks:
+  traefik-network:
+    external: true
+  coraf-internal:
+    driver: bridge
+    internal: true   # pas d'accès internet depuis ce réseau
+
+# ─────────────────────────────────────────────────────────
+#  VOLUMES PERSISTANTS
+# ─────────────────────────────────────────────────────────
+volumes:
+  coraf_pg_data:
+    driver: local
+
+# ─────────────────────────────────────────────────────────
+#  SERVICES
+# ─────────────────────────────────────────────────────────
+services:
+
+  # ── 1. PostgreSQL ──────────────────────────────────────
+  coraf-db:
+    image: postgres:16-alpine
+    container_name: coraf-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - coraf_pg_data:/var/lib/postgresql/data
+    networks:
+      - coraf-internal          # uniquement le réseau interne
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  # ── 2. Backend FastAPI ──────────────────────────────────
+  coraf-api:
+    build:
+      context: ./backend
+    container_name: coraf-api
+    restart: unless-stopped
+    depends_on:
+      coraf-db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@coraf-db:5432/${POSTGRES_DB}
+      SECRET_KEY: ${SECRET_KEY}
+      TOKEN_EXPIRE_MINUTES: ${TOKEN_EXPIRE_MINUTES:-480}
+    networks:
+      - coraf-internal          # parle à la DB
+      - traefik-network         # exposé via Traefik
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik-network"
+      # Routes : /api/*, /docs, /openapi.json → FastAPI
+      - "traefik.http.routers.coraf-api.rule=Host(`${DOMAIN}`) && (PathPrefix(`/api`) || PathPrefix(`/docs`) || PathPrefix(`/openapi.json`))"
+      - "traefik.http.routers.coraf-api.entrypoints=websecure"
+      - "traefik.http.routers.coraf-api.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.coraf-api.priority=10"
+      - "traefik.http.services.coraf-api.loadbalancer.server.port=8000"
+
+  # ── 3. Frontend React (Nginx) ───────────────────────────
+  coraf-frontend:
+    build:
+      context: ./frontend
+      args:
+        # Même domaine, pas de CORS cross-origin
+        VITE_API_URL: https://${DOMAIN}
+    container_name: coraf-frontend
+    restart: unless-stopped
+    depends_on:
+      - coraf-api
+    networks:
+      - traefik-network         # exposé via Traefik uniquement
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik-network"
+      # Route catchall → React SPA
+      - "traefik.http.routers.coraf-frontend.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.coraf-frontend.entrypoints=websecure"
+      - "traefik.http.routers.coraf-frontend.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.coraf-frontend.priority=1"
+      - "traefik.http.services.coraf-frontend.loadbalancer.server.port=80"
