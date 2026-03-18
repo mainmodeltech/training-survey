@@ -2,12 +2,12 @@ version: "3.9"
 
 # ─────────────────────────────────────────────────────────
 #  RÉSEAUX
-#  - traefik-network : réseau externe partagé avec Traefik
+#  - dokploy-network : réseau externe partagé avec Traefik
 #  - coraf-internal  : réseau privé entre les services
 #    (la DB n'est PAS exposée à Traefik ni à l'extérieur)
 # ─────────────────────────────────────────────────────────
 networks:
-  traefik-network:
+  dokploy-network:
     external: true
   coraf-internal:
     driver: bridge
@@ -60,10 +60,10 @@ services:
       TOKEN_EXPIRE_MINUTES: ${TOKEN_EXPIRE_MINUTES:-480}
     networks:
       - coraf-internal          # parle à la DB
-      - traefik-network         # exposé via Traefik
+      - dokploy-network         # exposé via Traefik
     labels:
       - "traefik.enable=true"
-      - "traefik.docker.network=traefik-network"
+      - "traefik.docker.network=dokploy-network"
       # Routes : /api/*, /docs, /openapi.json → FastAPI
       - "traefik.http.routers.coraf-api.rule=Host(`${DOMAIN}`) && (PathPrefix(`/api`) || PathPrefix(`/docs`) || PathPrefix(`/openapi.json`))"
       - "traefik.http.routers.coraf-api.entrypoints=websecure"
@@ -83,10 +83,10 @@ services:
     depends_on:
       - coraf-api
     networks:
-      - traefik-network         # exposé via Traefik uniquement
+      - dokploy-network         # exposé via Traefik uniquement
     labels:
       - "traefik.enable=true"
-      - "traefik.docker.network=traefik-network"
+      - "traefik.docker.network=dokploy-network"
       # Route catchall → React SPA
       - "traefik.http.routers.coraf-frontend.rule=Host(`${DOMAIN}`)"
       - "traefik.http.routers.coraf-frontend.entrypoints=websecure"
