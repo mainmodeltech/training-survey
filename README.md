@@ -85,7 +85,7 @@ VITE_API_URL=http://localhost:8000 npm run dev   # Démarre sur :3000
 
 - URL : `http://localhost:3000/#admin` (ou cliquer "Administration →" en haut à droite)
 - Identifiant par défaut : `admin`
-- Mot de passe par défaut : `ModelTech2025!`
+- Mot de passe par défaut : `**********`
 
 > ⚠️ **IMPORTANT** : Changez le mot de passe et la SECRET_KEY avant tout déploiement en production.
 

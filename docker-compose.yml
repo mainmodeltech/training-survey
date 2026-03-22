@@ -37,8 +37,7 @@ services:
     volumes:
       - coraf_pg_data:/var/lib/postgresql/data
     networks:
-      - coraf-internal
-      - dokploy-network # uniquement le réseau interne
+      - coraf-internal  # uniquement le réseau interne
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s

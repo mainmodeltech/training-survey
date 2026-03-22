@@ -420,7 +420,7 @@ export default function FormPage({ onAdminClick }: Props) {
       </div>
 
       <footer className="page-footer">
-        <p>© {new Date().getFullYear()} Model Technologie · Dakar, Sénégal · <a href="mailto:contact@model-technologie.com">contact@model-technologie.com</a></p>
+        <p>© {new Date().getFullYear()} Model Technologie · Dakar, Sénégal · <a href="mailto:admin@model-technologie.com">admin@model-technologie.com</a></p>
       </footer>
     </div>
   );
