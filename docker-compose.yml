@@ -26,7 +26,6 @@ services:
   # ── 1. PostgreSQL ──────────────────────────────────────
   coraf-db:
     image: postgres:16-alpine
-    container_name: coraf-db
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
@@ -49,7 +48,6 @@ services:
   coraf-api:
     build:
       context: ./backend
-    container_name: coraf-api
     restart: unless-stopped
     depends_on:
       coraf-db:
@@ -76,7 +74,6 @@ services:
       context: ./frontend
       args:
         VITE_API_URL: https://${DOMAIN}
-    container_name: coraf-frontend
     restart: unless-stopped
     depends_on:
       - coraf-api
@@ -94,7 +91,6 @@ services:
   # ── 4. Adminer ─────────────────────────────────────────
   coraf-adminer:
     image: adminer:latest
-    container_name: coraf-adminer
     restart: unless-stopped
     depends_on:
       - coraf-db
