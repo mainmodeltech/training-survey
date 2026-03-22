@@ -1,5 +1,3 @@
-version: "3.9"
-
 # ─────────────────────────────────────────────────────────
 #  RÉSEAUX
 #  - dokploy-network : réseau externe partagé avec Traefik
@@ -11,7 +9,7 @@ networks:
     external: true
   coraf-internal:
     driver: bridge
-    internal: true   # pas d'accès internet depuis ce réseau
+    internal: true
 
 # ─────────────────────────────────────────────────────────
 #  VOLUMES PERSISTANTS
@@ -37,8 +35,9 @@ services:
     volumes:
       - coraf_pg_data:/var/lib/postgresql/data
     networks:
-      - coraf-internal
-      - dokploy-network # uniquement le réseau interne
+      - coraf-internal          # DB isolée — jamais sur dokploy-network
+    labels:
+      - "traefik.enable=false"  # blindage : Traefik ne touche pas à Postgres
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
@@ -63,9 +62,8 @@ services:
       - coraf-internal          # parle à la DB
       - dokploy-network         # exposé via Traefik
     labels:
-      - "traefik.enable=true"
+      - "traefik.enable=true"   # CORRIGÉ : était false, l'API ne répondait pas
       - "traefik.docker.network=dokploy-network"
-      # Routes : /api/*, /docs, /openapi.json → FastAPI
       - "traefik.http.routers.coraf-api.rule=Host(`${DOMAIN}`) && (PathPrefix(`/api`) || PathPrefix(`/docs`) || PathPrefix(`/openapi.json`))"
       - "traefik.http.routers.coraf-api.entrypoints=websecure"
       - "traefik.http.routers.coraf-api.tls.certresolver=letsencrypt"
@@ -77,20 +75,36 @@ services:
     build:
       context: ./frontend
       args:
-        # Même domaine, pas de CORS cross-origin
         VITE_API_URL: https://${DOMAIN}
     container_name: coraf-frontend
     restart: unless-stopped
     depends_on:
       - coraf-api
     networks:
-      - dokploy-network         # exposé via Traefik uniquement
+      - dokploy-network
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=dokploy-network"
-      # Route catchall → React SPA
       - "traefik.http.routers.coraf-frontend.rule=Host(`${DOMAIN}`)"
       - "traefik.http.routers.coraf-frontend.entrypoints=websecure"
       - "traefik.http.routers.coraf-frontend.tls.certresolver=letsencrypt"
       - "traefik.http.routers.coraf-frontend.priority=1"
       - "traefik.http.services.coraf-frontend.loadbalancer.server.port=80"
+
+  # ── 4. Adminer ─────────────────────────────────────────
+  coraf-adminer:
+    image: adminer:latest
+    container_name: coraf-adminer
+    restart: unless-stopped
+    depends_on:
+      - coraf-db
+    networks:
+      - coraf-internal          # parle à coraf-db via réseau privé
+      - dokploy-network         # exposé via Traefik
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=dokploy-network"
+      - "traefik.http.routers.coraf-adminer.rule=Host(`adminer-coraf.model-technologie.com`)"
+      - "traefik.http.routers.coraf-adminer.entrypoints=websecure"
+      - "traefik.http.routers.coraf-adminer.tls.certresolver=letsencrypt"
+      - "traefik.http.services.coraf-adminer.loadbalancer.server.port=8080"
