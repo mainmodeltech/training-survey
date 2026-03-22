@@ -13,10 +13,8 @@ volumes:
 
 services:
 
-  # ── 1. PostgreSQL ──────────────────────────────────────
   coraf-db:
     image: postgres:16-alpine
-    container_name: coraf-db
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
@@ -35,11 +33,9 @@ services:
       retries: 10
       start_period: 20s
 
-  # ── 2. Backend FastAPI ──────────────────────────────────
   coraf-api:
     build:
       context: ./backend
-    container_name: coraf-api
     restart: unless-stopped
     depends_on:
       coraf-db:
@@ -58,16 +54,14 @@ services:
       - "traefik.http.routers.mt-coraf-api.entrypoints=websecure"
       - "traefik.http.routers.mt-coraf-api.tls.certresolver=letsencrypt"
       - "traefik.http.routers.mt-coraf-api.priority=10"
-      - "traefik.http.services.mt-coraf-api.loadbalancer.server.port=8000"
       - "traefik.http.routers.mt-coraf-api.service=mt-coraf-api"
+      - "traefik.http.services.mt-coraf-api.loadbalancer.server.port=8000"
 
-  # ── 3. Frontend React (Nginx) ───────────────────────────
   coraf-frontend:
     build:
       context: ./frontend
       args:
         VITE_API_URL: https://coraf.model-technologie.com
-    container_name: coraf-frontend
     restart: unless-stopped
     depends_on:
       - coraf-api
@@ -76,19 +70,15 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=dokploy-network"
-      # Désactive les routers auto-générés par Dokploy
       - "traefik.http.routers.mt-coraf-frontend.rule=Host(`coraf.model-technologie.com`)"
       - "traefik.http.routers.mt-coraf-frontend.entrypoints=websecure"
       - "traefik.http.routers.mt-coraf-frontend.tls.certresolver=letsencrypt"
       - "traefik.http.routers.mt-coraf-frontend.priority=1"
-      - "traefik.http.services.mt-coraf-frontend.loadbalancer.server.port=80"
-      # Cette ligne force Traefik à n'utiliser QUE le service explicitement nommé
       - "traefik.http.routers.mt-coraf-frontend.service=mt-coraf-frontend"
+      - "traefik.http.services.mt-coraf-frontend.loadbalancer.server.port=80"
 
-  # ── 4. Adminer ─────────────────────────────────────────
   coraf-adminer:
     image: adminer:latest
-    container_name: coraf-adminer
     restart: unless-stopped
     depends_on:
       - coraf-db
@@ -101,4 +91,5 @@ services:
       - "traefik.http.routers.mt-coraf-adminer.rule=Host(`adminer-coraf.model-technologie.com`)"
       - "traefik.http.routers.mt-coraf-adminer.entrypoints=websecure"
       - "traefik.http.routers.mt-coraf-adminer.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.mt-coraf-adminer.service=mt-coraf-adminer"
       - "traefik.http.services.mt-coraf-adminer.loadbalancer.server.port=8080"
